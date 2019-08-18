@@ -45,7 +45,12 @@ class Parser {
     }
 
     String symbol() {
-        return currentCommand.substring(1);
+        if (currentCommand.startsWith("@")) {
+            return currentCommand.substring(1);
+        }
+        else {
+            return currentCommand.substring(1, currentCommand.length() - 1);
+        }
     }
 
     String dest() {

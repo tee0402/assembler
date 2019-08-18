@@ -4,27 +4,8 @@ import java.io.*;
 
 public class Assembler {
 
-    private static SymbolTable symbolTable;
-
     public static void main(String[] args) throws IOException {
-        initialize();
-
-        FileWriter fileWriter = new FileWriter(args[0].split("\\.")[0] + ".hack");
-        Parser parser = new Parser(args[0]);
-        while (parser.hasMoreCommands()) {
-            parser.advance();
-            if (parser.commandType() == CommandType.A_COMMAND) {
-                fileWriter.write(String.format("%16s", Integer.toBinaryString(Integer.parseInt(parser.symbol()))).replace(' ', '0') + "\n");
-            }
-            else {
-                fileWriter.write("111" + Code.comp(parser.comp()) + Code.dest(parser.dest()) + Code.jump(parser.jump()) + "\n");
-            }
-        }
-        fileWriter.close();
-    }
-
-    private static void initialize() {
-        symbolTable = new SymbolTable();
+        SymbolTable symbolTable = new SymbolTable();
         symbolTable.addEntry("SP", 0);
         symbolTable.addEntry("LCL", 1);
         symbolTable.addEntry("ARG", 2);
@@ -48,9 +29,43 @@ public class Assembler {
         symbolTable.addEntry("R15", 15);
         symbolTable.addEntry("SCREEN", 16384);
         symbolTable.addEntry("KBD", 24576);
-    }
 
-    private static void firstPass() {
-        
+        Parser parser = new Parser(args[0]);
+        int romAddress = 0;
+        while (parser.hasMoreCommands()) {
+            parser.advance();
+            if (parser.commandType() == CommandType.L_COMMAND) {
+                symbolTable.addEntry(parser.symbol(), romAddress);
+            }
+            else {
+                romAddress++;
+            }
+        }
+
+        parser = new Parser(args[0]);
+        FileWriter fileWriter = new FileWriter(args[0].split("\\.")[0] + ".hack");
+        int ramAddress = 16;
+        while (parser.hasMoreCommands()) {
+            parser.advance();
+            if (parser.commandType() == CommandType.A_COMMAND) {
+                if (parser.symbol().matches("\\d+")) {
+                    fileWriter.write(String.format("%16s", Integer.toBinaryString(Integer.parseInt(parser.symbol()))).replace(' ', '0') + "\n");
+                }
+                else {
+                    if (symbolTable.contains(parser.symbol())) {
+                        fileWriter.write(String.format("%16s", Integer.toBinaryString(symbolTable.getAddress(parser.symbol()))).replace(' ', '0') + "\n");
+                    }
+                    else {
+                        fileWriter.write(String.format("%16s", Integer.toBinaryString(ramAddress)).replace(' ', '0') + "\n");
+                        symbolTable.addEntry(parser.symbol(), ramAddress);
+                        ramAddress++;
+                    }
+                }
+            }
+            else if (parser.commandType() == CommandType.C_COMMAND) {
+                fileWriter.write("111" + Code.comp(parser.comp()) + Code.dest(parser.dest()) + Code.jump(parser.jump()) + "\n");
+            }
+        }
+        fileWriter.close();
     }
 }
